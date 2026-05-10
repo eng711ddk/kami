@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import type { PrismaClient } from "../../generated/prisma/client";
 import { handlePaymentNotify } from "../../modules/payment/service";
 import { logger } from "../../lib/logger";
 
@@ -18,7 +19,7 @@ export function registerEpayRoutes(app: Hono) {
         c.req.method === "GET"
           ? normalizePayload(Object.fromEntries(new URL(c.req.url).searchParams.entries()))
           : normalizePayload(await c.req.parseBody());
-      const universalContext = (c as any).get("universalContext") as { prisma: import("../../generated/prisma/client").PrismaClient };
+      const universalContext = (c as any).get("universalContext") as { prisma: PrismaClient };
       if (!universalContext?.prisma) {
         logger.error("Missing prisma for epay notify", {
           event: "payment.notify.context_missing",

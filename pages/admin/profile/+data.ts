@@ -1,7 +1,9 @@
+import type { PrismaClient } from "../../../generated/prisma/client";
+
 export type Data = ReturnType<typeof data>;
 
 export async function data(pageContext: {
-  prisma: import("../../../generated/prisma/client").PrismaClient;
+  prisma: PrismaClient;
   session?: { user?: { id?: string; role?: string } };
 }) {
   if (pageContext.session?.user?.role !== "admin") {

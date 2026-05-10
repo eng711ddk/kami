@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import type { PrismaClient } from "../../generated/prisma/client";
 import { handlePaymentNotify } from "../../modules/payment/service";
 import { logger } from "../../lib/logger";
 
@@ -6,7 +7,7 @@ export function registerBepusdtRoutes(app: Hono) {
   app.post("/api/payments/bepusdt/notify", async (c) => {
     try {
       const payload = await c.req.json<Record<string, string>>();
-      const universalContext = (c as any).get("universalContext") as { prisma: import("../../generated/prisma/client").PrismaClient };
+      const universalContext = (c as any).get("universalContext") as { prisma: PrismaClient };
       if (!universalContext?.prisma) {
         logger.error("Missing prisma for bepusdt notify", {
           event: "payment.notify.context_missing",

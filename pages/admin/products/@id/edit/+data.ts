@@ -1,10 +1,11 @@
+import type { PrismaClient } from "../../../../../generated/prisma/client";
 import { getAdminCategories, getAdminProductById } from "../../../../../modules/catalog/service";
 
 export type Data = ReturnType<typeof data>;
 
 export async function data(pageContext: {
   routeParams: { id: string };
-  prisma: import("../../../../../generated/prisma/client").PrismaClient;
+  prisma: PrismaClient;
   session?: { user?: { role?: string } };
 }) {
   if (pageContext.session?.user?.role !== "admin") {
