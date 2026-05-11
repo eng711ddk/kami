@@ -90,7 +90,8 @@
           <input
             v-model="form.cacheControl"
             class="input input-bordered w-full"
-            placeholder="public, max-age=31536000, immutable"
+            placeholder="public, max-age=31536000, s-maxage=31536000, immutable"
+            required
           />
           <span class="text-xs text-base-content/50">
             Cache-Control 头，用于 Cloudflare 缓存。默认 1 年不变更缓存
@@ -157,7 +158,7 @@ const form = reactive({
   region: props.config?.region || "auto",
   publicDomain: props.config?.publicDomain || "",
   pathPrefix: props.config?.pathPrefix || "",
-  cacheControl: props.config?.cacheControl || "public, max-age=31536000, immutable",
+  cacheControl: props.config?.cacheControl || "public, max-age=31536000, s-maxage=31536000, immutable",
 });
 
 function handleSave() {

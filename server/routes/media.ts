@@ -62,12 +62,13 @@ export function registerMediaRoutes(app: Hono) {
   });
 
   /**
-   * GET /api/media/proxy/*
-   * Proxy media file from S3 through Worker domain
-   * Adds Cache-Control headers for Cloudflare caching
-   * This endpoint is public - no auth required (files are served publicly)
+   * GET /media/proxy/*
+   * Proxy media file from S3 through Worker domain.
+   * Uses /media/ prefix (not /api/) so Cloudflare treats it as static
+   * content and caches it at the edge.
+   * This endpoint is public - no auth required (files are served publicly).
    */
-  app.get("/api/media/proxy/*", async (c) => {
+  app.get("/media/proxy/*", async (c) => {
     try {
       const database = (c.env as { DB?: D1Database } | undefined)?.DB;
       if (!database) {
@@ -77,7 +78,7 @@ export function registerMediaRoutes(app: Hono) {
 
       // Extract the key from the URL path
       const fullPath = c.req.path;
-      const keyPrefix = "/api/media/proxy/";
+      const keyPrefix = "/media/proxy/";
       const fileKey = fullPath.substring(fullPath.indexOf(keyPrefix) + keyPrefix.length);
 
       if (!fileKey) {
@@ -96,33 +97,107 @@ export function registerMediaRoutes(app: Hono) {
         return c.json({ message: "S3 配置缺失", code: "S3_CONFIG_MISSING" }, 500);
       }
 
-      // Fetch from S3
+      // Fetch from S3 with retry for transient errors
       const s3Client = createS3ClientFromConfig(s3Config);
-      const s3Response = await s3Client.getObject(fileKey);
+      const MAX_RETRIES = 2;
+      const RETRY_DELAY_MS = 500;
 
-      if (!s3Response.ok) {
-        if (s3Response.status === 404) {
-          return c.json({ message: "文件不存在于存储中", code: "S3_NOT_FOUND" }, 404);
+      let lastError: Error | null = null;
+      let s3Response: Response | null = null;
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          s3Response = await s3Client.getObject(fileKey);
+
+          // Success - break out of retry loop
+          if (s3Response.ok) break;
+
+          // 404 is not retryable - file doesn't exist in S3
+          if (s3Response.status === 404) {
+            logger.warn("S3 文件不存在", {
+              event: "media.proxy.s3_not_found",
+              fileKey,
+              mediaId: media.id,
+            });
+            return c.json({ message: "文件不存在于存储中", code: "S3_NOT_FOUND" }, 404);
+          }
+
+          // 403 is not retryable - credentials issue
+          if (s3Response.status === 403) {
+            logger.warn("S3 认证失败", {
+              event: "media.proxy.s3_forbidden",
+              fileKey,
+              status: s3Response.status,
+            });
+            return c.json({ message: "存储服务认证失败", code: "S3_FORBIDDEN" }, 502);
+          }
+
+          // Other errors (500, 503, 429 etc.) are retryable
+          const errorText = await s3Response.text().catch(() => "");
+          lastError = new Error(`S3 返回 ${s3Response.status}: ${errorText}`);
+
+          if (attempt < MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+          }
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+
+          if (attempt < MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+          }
         }
-        return c.json({ message: "获取文件失败", code: "S3_ERROR" }, 502);
+      }
+
+      // All retries exhausted
+      if (!s3Response || !s3Response.ok) {
+        logger.error(lastError || new Error("S3 request failed after retries"), {
+          event: "media.proxy.s3_failed",
+          fileKey,
+          mediaId: media.id,
+          attempts: MAX_RETRIES + 1,
+        });
+        return c.json({ message: "存储服务暂时不可用，请稍后重试", code: "S3_ERROR" }, 502);
+      }
+
+      // Buffer the entire S3 response body before returning.
+      // If we return the raw ReadableStream and the S3 connection drops
+      // mid-transfer, the stream error propagates to the Worker runtime
+      // (outside Hono's try-catch), causing "Worker threw exception".
+      // Buffering first ensures all errors are caught here.
+      let body: ArrayBuffer;
+      try {
+        body = await s3Response.arrayBuffer();
+      } catch (err) {
+        logger.error(err instanceof Error ? err : new Error(String(err)), {
+          event: "media.proxy.stream_error",
+          fileKey,
+          mediaId: media.id,
+        });
+        return c.json({ message: "读取文件内容失败", code: "STREAM_ERROR" }, 502);
+      }
+
+      if (body.byteLength === 0) {
+        logger.warn("S3 返回空响应体", {
+          event: "media.proxy.empty_body",
+          fileKey,
+          mediaId: media.id,
+        });
+        return c.json({ message: "文件内容为空", code: "EMPTY_BODY" }, 502);
       }
 
       // Build response with Cache-Control header
       const headers = new Headers();
       headers.set("Content-Type", media.mimeType);
-      headers.set("Cache-Control", s3Config.cacheControl || "public, max-age=31536000, immutable");
+      headers.set("Content-Length", String(body.byteLength));
+      headers.set("Cache-Control", s3Config.cacheControl);
       headers.set("Content-Disposition", `inline; filename="${encodeURIComponent(media.originalName)}"`);
 
-      const contentLength = s3Response.headers.get("Content-Length");
-      if (contentLength) {
-        headers.set("Content-Length", contentLength);
-      }
       const etag = s3Response.headers.get("ETag");
       if (etag) {
         headers.set("ETag", etag);
       }
 
-      return new Response(s3Response.body, {
+      return new Response(body, {
         status: 200,
         headers,
       });

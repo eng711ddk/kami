@@ -19,7 +19,7 @@ export function upsertS3ConfigRecord(prisma: PrismaClient, input: S3ConfigInput)
       region: input.region || "auto",
       publicDomain: input.publicDomain || null,
       pathPrefix: input.pathPrefix || null,
-      cacheControl: input.cacheControl || "public, max-age=31536000, immutable",
+      cacheControl: input.cacheControl,
     },
     update: {
       endpoint: input.endpoint,
@@ -29,7 +29,7 @@ export function upsertS3ConfigRecord(prisma: PrismaClient, input: S3ConfigInput)
       region: input.region || "auto",
       publicDomain: input.publicDomain || null,
       pathPrefix: input.pathPrefix || null,
-      cacheControl: input.cacheControl || "public, max-age=31536000, immutable",
+      cacheControl: input.cacheControl,
     },
   });
 }

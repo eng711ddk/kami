@@ -135,7 +135,7 @@ export class S3Client {
 
     const headers: Record<string, string> = {
       "Content-Type": contentType,
-      "Cache-Control": this.config.cacheControl || "public, max-age=31536000, immutable",
+      "Cache-Control": this.config.cacheControl,
     };
 
     let response: Response;
@@ -163,19 +163,32 @@ export class S3Client {
 
   /**
    * Get an object from S3 (for proxying)
+   * @param key S3 object key
+   * @param timeoutMs Request timeout in milliseconds (default 10s)
    */
-  async getObject(key: string): Promise<Response> {
+  async getObject(key: string, timeoutMs = 10_000): Promise<Response> {
     const url = this.buildUrl(key);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     let response: Response;
     try {
-      response = await this.client.fetch(url, { method: "GET" });
+      response = await this.client.fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+      });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new Error(`S3 获取文件超时（${timeoutMs}ms）：存储服务响应过慢，请稍后重试。`);
+      }
       if (msg.includes("fetch") || msg.includes("network") || msg.includes("ENOTFOUND")) {
         throw new Error(`S3 获取文件失败：无法连接到存储服务。请检查端点地址是否正确，以及网络连接是否正常。`);
       }
       throw new Error(`S3 获取文件失败：${msg}`);
+    } finally {
+      clearTimeout(timer);
     }
 
     return response;
@@ -263,6 +276,6 @@ export function createS3ClientFromConfig(config: {
     region: config.region || "auto",
     publicDomain: config.publicDomain || undefined,
     pathPrefix: config.pathPrefix || undefined,
-    cacheControl: config.cacheControl || "public, max-age=31536000, immutable",
+    cacheControl: config.cacheControl || undefined,
   });
 }

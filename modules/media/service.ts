@@ -43,6 +43,7 @@ export async function saveS3Config(input: S3ConfigInput) {
   if (!input.accessKeyId?.trim()) throw badRequestError("Access Key ID 不能为空", "ACCESS_KEY_REQUIRED");
   if (!input.secretAccessKey?.trim()) throw badRequestError("Secret Access Key 不能为空", "SECRET_KEY_REQUIRED");
   if (!input.bucketName?.trim()) throw badRequestError("存储桶名称不能为空", "BUCKET_REQUIRED");
+  if (!input.cacheControl?.trim()) throw badRequestError("缓存策略不能为空", "CACHE_CONTROL_REQUIRED");
 
   // Normalize endpoint: remove trailing slash
   const endpoint = input.endpoint.trim().replace(/\/+$/, "");
@@ -55,7 +56,7 @@ export async function saveS3Config(input: S3ConfigInput) {
     region: input.region?.trim() || "auto",
     publicDomain: input.publicDomain?.trim() || undefined,
     pathPrefix: input.pathPrefix?.trim().replace(/^\/|\/$/g, "") || undefined,
-    cacheControl: input.cacheControl?.trim() || "public, max-age=31536000, immutable",
+    cacheControl: input.cacheControl.trim(),
   });
 
   await logAdminOperation(
@@ -173,8 +174,8 @@ export async function handleUpload(
   // Upload to S3
   await s3Client.putObject(fileKey, arrayBuffer, contentType);
 
-  // URL always goes through Worker proxy for Cloudflare caching
-  const url = `/api/media/proxy/${fileKey}`;
+  // URL uses /media/proxy/ (not /api/) so Cloudflare treats it as static content
+  const url = `/media/proxy/${fileKey}`;
 
   // Save to database
   const media = await createMediaRecord(prisma, {
