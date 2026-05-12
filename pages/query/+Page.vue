@@ -12,6 +12,10 @@
     <!-- 本地订单 -->
     <div v-if="activeTab === 'local'" class="card bg-base-100 shadow-sm rounded-tl-none">
       <div class="card-body">
+        <div class="mb-2 flex items-center justify-between gap-3">
+          <span class="text-sm text-base-content/60">本地订单会在打开页面时自动同步最新状态</span>
+          <AppButton size="sm" variant="ghost" :loading="syncingLocalOrders" @click="refreshLocalOrders">刷新状态</AppButton>
+        </div>
         <div v-if="!localOrders.length" class="flex flex-col items-center gap-2 py-8 text-base-content/40">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -31,8 +35,8 @@
             </div>
             <div class="flex items-center gap-3 shrink-0 ml-4">
               <span v-if="o.paymentStatus" class="text-xs px-2 py-0.5 rounded-full font-medium"
-                :class="o.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
-                {{ o.paymentStatus === 'PAID' ? '已支付' : '待支付' }}
+                :class="o.deliveryStatus === 'DELIVERED' ? 'bg-green-100 text-green-700' : o.paymentStatus === 'PAID' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'">
+                {{ o.deliveryStatus === 'DELIVERED' ? '已发货' : o.paymentStatus === 'PAID' ? '已支付' : '待支付' }}
               </span>
               <div class="text-right">
                 <div class="text-sm font-bold text-primary">{{ formatCents(o.amount) }}</div>
@@ -73,7 +77,8 @@ import { normalizeTelefuncError } from "../../lib/app-error";
 import { ref, onMounted } from "vue";
 import AppButton from "../../components/AppButton.vue";
 import { onQueryOrder } from "./queryOrder.telefunc";
-import { getLocalOrders, type LocalOrder } from "../../lib/local-orders";
+import { onSyncLocalOrders } from "./syncLocalOrders.telefunc";
+import { getLocalOrders, saveLocalOrders, type LocalOrder } from "../../lib/local-orders";
 import { formatCents } from "../../lib/utils/money";
 
 const activeTab = ref<"local" | "query">("query");
@@ -81,14 +86,55 @@ const orderNo = ref("");
 const queryToken = ref("");
 const errorMessage = ref("");
 const querying = ref(false);
+const syncingLocalOrders = ref(false);
 const localOrders = ref<LocalOrder[]>([]);
 
 onMounted(() => {
   localOrders.value = getLocalOrders();
+  refreshLocalOrders();
 });
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
+}
+
+function isTerminalLocalOrder(order: LocalOrder) {
+  return (
+    order.deliveryStatus === "DELIVERED" ||
+    order.deliveryStatus === "FAILED" ||
+    order.status === "CLOSED" ||
+    order.status === "FAILED" ||
+    order.paymentStatus === "FAILED"
+  );
+}
+
+async function refreshLocalOrders() {
+  if (!localOrders.value.length || syncingLocalOrders.value) return;
+
+  const pendingOrders = localOrders.value.filter((order) => !isTerminalLocalOrder(order));
+  if (!pendingOrders.length) return;
+
+  syncingLocalOrders.value = true;
+  try {
+    const remoteOrders = await onSyncLocalOrders({
+      orders: pendingOrders.map((order) => ({
+        orderNo: order.orderNo,
+        queryToken: order.queryToken,
+      })),
+    });
+    const remoteMap = new Map(remoteOrders.map((order) => [order.orderNo, order]));
+    const merged = localOrders.value.map((order) => {
+      const remote = remoteMap.get(order.orderNo);
+      return remote ? { ...order, ...remote, updatedAt: new Date().toISOString() } : order;
+    });
+
+    localOrders.value = merged;
+    saveLocalOrders(merged);
+  } catch {
+    // 本地订单缓存刷新失败不影响手动查询和进入订单详情。
+  } finally {
+    syncingLocalOrders.value = false;
+  }
 }
 
 async function handleQuery() {

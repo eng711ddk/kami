@@ -161,6 +161,43 @@ export async function getOrderForQuery(
   };
 }
 
+export async function getOrdersForLocalCache(
+  inputs: Array<{ orderNo: string; queryToken: string }>,
+  prisma?: PrismaClient,
+) {
+  const client = prisma ?? getOrderContext().prisma;
+  const uniqueInputs = Array.from(
+    new Map(
+      inputs
+        .filter((item) => item.orderNo?.trim() && item.queryToken?.trim())
+        .slice(0, 50)
+        .map((item) => [item.orderNo.trim(), { orderNo: item.orderNo.trim(), queryToken: item.queryToken.trim() }]),
+    ).values(),
+  );
+
+  const result = [];
+
+  for (const input of uniqueInputs) {
+    const order = await findOrderWithProduct(client, input.orderNo);
+    if (!order || order.queryToken !== input.queryToken) {
+      continue;
+    }
+
+    result.push({
+      orderNo: order.orderNo,
+      queryToken: order.queryToken,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      deliveryStatus: order.deliveryStatus,
+      productName: order.productNameSnapshot,
+      amount: order.amount,
+      createdAt: order.createdAt.toISOString(),
+    });
+  }
+
+  return result;
+}
+
 export async function getAdminOrders(prisma?: PrismaClient) {
   const client = prisma ?? getOrderContext().prisma;
   const orders = await listOrderRecords(client);
