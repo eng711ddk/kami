@@ -112,15 +112,18 @@ enum DiscountType {
 }
 
 model Admin {
-  id            Int                 @id @default(autoincrement())
-  username      String              @unique
-  passwordHash  String
-  nickname      String?
-  email         String?
-  status        AdminStatus         @default(ACTIVE)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  operationLogs AdminOperationLog[]
+  id                  Int                 @id @default(autoincrement())
+  username            String              @unique
+  passwordHash        String
+  nickname            String?
+  email               String?
+  status              AdminStatus         @default(ACTIVE)
+  twoFactorEnabled    Boolean             @default(false)
+  twoFactorSecret     String?
+  twoFactorEnabledAt  DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  operationLogs       AdminOperationLog[]
 }
 
 model DiscountCode {

@@ -7,6 +7,7 @@ import { PrismaClient } from "../generated/prisma/client";
 import { badRequestError, internalServerError, rateLimitError } from "../lib/app-error";
 import { logger } from "../lib/logger";
 import { verifyAdminPassword, hashAdminPassword } from "../modules/auth/crypto";
+import { verifyTotpCode } from "../modules/auth/totp";
 import { getClientIpFromRequest, TURNSTILE_ACTION, verifyTurnstileToken } from "./turnstile";
 
 const ADMIN_ROLE = "admin" as const;
@@ -82,7 +83,7 @@ function isRateLimited(request: Request) {
   return current.count > maxAttempts;
 }
 
-async function findAdminByCredentials(prisma: PrismaClient, username: string, password: string) {
+async function findAdminByCredentials(prisma: PrismaClient, username: string, password: string, twoFactorCode?: string) {
   const admin = await prisma.admin.findUnique({
     where: { username },
   });
@@ -94,6 +95,21 @@ async function findAdminByCredentials(prisma: PrismaClient, username: string, pa
   const valid = await verifyAdminPassword(password, admin.passwordHash);
   if (!valid) {
     return null;
+  }
+
+  if (admin.twoFactorEnabled) {
+    if (!admin.twoFactorSecret) {
+      const err = new CredentialsSignin("双重认证配置异常，请联系管理员");
+      err.code = "two_factor_config_invalid";
+      throw err;
+    }
+
+    const codeValid = await verifyTotpCode({ secret: admin.twoFactorSecret, code: twoFactorCode ?? "" });
+    if (!codeValid) {
+      const err = new CredentialsSignin("请输入正确的双重认证验证码");
+      err.code = twoFactorCode ? "two_factor_invalid" : "two_factor_required";
+      throw err;
+    }
   }
 
   // 旧 SHA-256 哈希自动升级为 bcrypt
@@ -134,18 +150,21 @@ export function createAuthjsConfig(prisma: PrismaClient) {
         credentials: {
           username: { label: "Username", type: "text", placeholder: "admin" },
           password: { label: "Password", type: "password" },
+          twoFactorCode: { label: "Two-factor code", type: "text" },
         },
         async authorize(credentials) {
           const usernameRaw = credentials?.username;
           const passwordRaw = credentials?.password;
+          const twoFactorCodeRaw = credentials?.twoFactorCode;
           const username = typeof usernameRaw === "string" ? usernameRaw.trim() : "";
           const password = typeof passwordRaw === "string" ? passwordRaw : "";
+          const twoFactorCode = typeof twoFactorCodeRaw === "string" ? twoFactorCodeRaw.trim() : "";
 
           if (!username || !password) {
             return null;
           }
 
-          return findAdminByCredentials(prisma, username, password);
+          return findAdminByCredentials(prisma, username, password, twoFactorCode);
         },
       }),
     ],

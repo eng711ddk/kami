@@ -21,6 +21,19 @@
             <span class="label-text font-medium">密码</span>
             <input name="password" type="password" class="input input-bordered w-full" placeholder="请输入密码" required />
           </label>
+          <label v-if="showTwoFactorCode" class="flex flex-col gap-1.5">
+            <span class="label-text font-medium">双重认证验证码</span>
+            <input
+              name="twoFactorCode"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxlength="6"
+              class="input input-bordered w-full"
+              placeholder="请输入验证器 App 中的 6 位验证码"
+              required
+            />
+          </label>
           <div v-if="turnstileEnabled" class="space-y-2">
             <div
               ref="turnstileContainerRef"
@@ -63,6 +76,10 @@ type TurnstileConfigResponse = {
   action?: string | null;
 };
 
+type TwoFactorConfigResponse = {
+  enabled?: boolean;
+};
+
 const csrfToken = ref("");
 const loading = ref(true);
 const errorMsg = ref("");
@@ -74,6 +91,7 @@ const turnstileToken = ref("");
 const turnstileWidgetId = ref<string | null>(null);
 const turnstileContainerRef = ref<HTMLElement | null>(null);
 const redirectPath = ref("/admin");
+const showTwoFactorCode = ref(false);
 
 const ERROR_MAP: Record<string, string> = {
   CredentialsSignin: "用户名或密码错误",
@@ -81,6 +99,9 @@ const ERROR_MAP: Record<string, string> = {
   turnstile_required: "请先完成人机验证",
   turnstile_invalid: "人机验证未通过，请重试",
   turnstile_invalid_action: "人机验证结果异常，请刷新页面后重试",
+  two_factor_required: "账号已启用双重认证，请输入验证码后重新登录",
+  two_factor_invalid: "双重认证验证码不正确，请重试",
+  two_factor_config_invalid: "双重认证配置异常，请联系管理员",
   AUTH_RATE_LIMITED: "登录过于频繁，请稍后再试",
 };
 
@@ -144,11 +165,13 @@ async function loadPageData() {
   const code = params.get("code") ?? params.get("error");
   if (code) {
     errorMsg.value = ERROR_MAP[code] ?? "登录失败，请重试";
+    showTwoFactorCode.value = code === "two_factor_required" || code === "two_factor_invalid";
   }
 
-  const [csrfResponse, turnstileResponse] = await Promise.all([
+  const [csrfResponse, turnstileResponse, twoFactorResponse] = await Promise.all([
     fetch("/api/auth/csrf", { credentials: "same-origin" }),
     fetch("/api/turnstile/config", { credentials: "same-origin" }),
+    fetch("/api/auth/two-factor-config", { credentials: "same-origin" }),
   ]);
 
   const csrfData = (await csrfResponse.json()) as { csrfToken?: string };
@@ -158,6 +181,9 @@ async function loadPageData() {
   turnstileEnabled.value = Boolean(turnstileData.enabled && turnstileData.siteKey);
   turnstileSiteKey.value = turnstileData.siteKey ?? "";
   turnstileAction.value = turnstileData.action || "admin_login";
+
+  const twoFactorData = (await twoFactorResponse.json()) as TwoFactorConfigResponse;
+  showTwoFactorCode.value = showTwoFactorCode.value || Boolean(twoFactorData.enabled);
 
   if (turnstileEnabled.value) {
     await ensureTurnstileScript();

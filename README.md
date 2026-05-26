@@ -198,6 +198,21 @@ UPDATE Admin SET passwordHash = '$2b$10$viMe8RgcpM30gmmF9OpOcuA/QgleSIUk5VRtqjOu
 
 4. 登录后台后立即修改密码
 
+### 忘记双重认证验证码？
+
+如果已启用双重认证，但验证器 App 丢失或无法获取验证码，可以在 Cloudflare Dashboard 中通过 D1 Console 临时关闭该管理员账号的双重认证。
+执行以下 SQL [如何执行sql](#如何执行sql)：
+
+```sql
+UPDATE "Admin"
+SET "twoFactorEnabled" = false,
+    "twoFactorSecret" = NULL,
+    "twoFactorEnabledAt" = NULL
+WHERE "username" = 'admin';
+```
+
+关闭后请立即登录后台，前往 **安全设置** 重新绑定身份验证器 App。该操作需要数据库管理权限，仅作为账号恢复手段使用。
+
 
 ## Cloudflare平台操作
 

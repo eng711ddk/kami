@@ -7,6 +7,7 @@ import { registerStripeRoutes } from "./payment-stripe";
 import { registerRobotsRoutes } from "./robots";
 import { registerSitemapRoutes } from "./sitemap";
 import { registerMediaRoutes } from "./media";
+import { registerAuthConfigRoutes } from "./auth-config";
 import { registerTurnstileRoutes } from "./turnstile";
 
 // 集中注册所有 `/api/*` 路由，避免入口文件散落多个 register 调用。
@@ -19,6 +20,7 @@ export function registerApiRoutes(app: Hono) {
   registerRobotsRoutes(app);
   registerSitemapRoutes(app);
   registerMediaRoutes(app);
+  registerAuthConfigRoutes(app);
   registerTurnstileRoutes(app);
 }
 

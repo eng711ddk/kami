@@ -1,6 +1,6 @@
 import type { PrismaClient } from "../../../generated/prisma/client";
 
-export type Data = ReturnType<typeof data>;
+export type Data = Awaited<ReturnType<typeof data>>;
 
 export async function data(pageContext: {
   prisma: PrismaClient;
