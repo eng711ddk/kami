@@ -73,7 +73,7 @@
       </div>
 
       <div v-if="filteredProducts.length" class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <article v-for="product in filteredProducts" :key="product.id" class="card bg-base-100 shadow-sm hover:shadow-md transition-all duration-300 group rounded-xl overflow-hidden border border-base-200 cursor-pointer">
+        <article v-for="product in filteredProducts" :key="product.id" class="card bg-base-100 shadow-sm hover:shadow-md transition-all duration-300 group rounded-xl overflow-hidden border border-base-200 cursor-pointer" @click="navigateToProduct(product.slug)">
 
           <!-- 商品图片 -->
           <figure class="relative pt-[100%] overflow-hidden">
@@ -142,6 +142,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useData } from "vike-vue/useData";
+import { navigate } from "vike/client/router";
 import { formatCents } from "../../lib/utils/money";
 import emptyCoverUrl from "../../assets/empty.jpg";
 import type { Data } from "./+data";
@@ -159,6 +160,11 @@ const filteredProducts = computed(() => {
 // 库存紧张
 const lowStock = (product: ProductSummary) => {
   return product.availableStock >= 0 && product.availableStock < 10
+}
+
+// 跳转到商品详情页
+const navigateToProduct = (slug: string) => {
+  navigate(`/product/${slug}`);
 }
 </script>
 
