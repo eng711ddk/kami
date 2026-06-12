@@ -1,46 +1,38 @@
 <template>
-  <div class="space-y-8">
+  <div class="space-y-10">
 
-    <section class="relative pt-12">
+    <!-- Hero 区域 -->
+    <section class="relative pt-8">
       <img class="hero-img pointer-events-none" src="../../assets/home-n.png" alt="hero-img">
-      <div class="relative rounded-box bg-base-100 shadow-sm overflow-hidden">
-        <!-- 背景装饰 -->
-        <div class="pointer-events-none absolute inset-0 opacity-[0.03]" aria-hidden="true">
-          <div class="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-primary"></div>
-          <div class="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-secondary"></div>
+      <div class="relative rounded-2xl bg-base-100 shadow-md overflow-hidden border border-base-200/60">
+        <!-- 背景渐变装饰 -->
+        <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+          <div class="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-gradient-to-br from-primary/5 to-transparent blur-2xl"></div>
+          <div class="absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-gradient-to-tr from-secondary/5 to-transparent blur-2xl"></div>
         </div>
 
-        <div class="relative flex flex-col gap-6 px-8 py-8 lg:flex-row lg:items-center lg:justify-between">
+        <div class="relative flex flex-col gap-6 px-8 py-10 lg:flex-row lg:items-center lg:justify-between">
           <!-- 左侧文字 -->
           <div class="space-y-4 max-w-lg">
-            <div class="badge badge-primary badge-outline font-semibold tracking-widest uppercase">
+            <div class="inline-flex items-center gap-2 badge badge-primary badge-outline font-semibold tracking-widest uppercase">
               {{ site.siteSubtitle || 'Welcome' }}
             </div>
-            <p v-if="site.notice" class="text-base-content/60 text-sm leading-relaxed border-l-2 border-primary pl-3">
+            <p v-if="site.notice" class="text-base-content/50 text-sm leading-relaxed border-l-2 border-primary/40 pl-4">
               {{ site.notice }}
             </p>
           </div>
 
           <!-- 右侧统计 -->
-          <div class="stats mr-32 bg-base-200 shadow shrink-0 max-lg:w-full">
-            <!-- <div class="stat">
-              <div class="stat-figure text-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 10h16M4 14h8" />
-                </svg>
+          <div class="flex items-center gap-4 shrink-0 max-lg:w-full">
+            <div class="flex items-center gap-3 rounded-xl bg-gradient-to-br from-secondary/10 to-base-200 px-6 py-4 shadow-sm">
+              <div class="flex flex-col items-end">
+                <span class="text-xs text-base-content/50 font-medium">在售商品</span>
+                <span class="text-3xl font-bold text-secondary leading-none mt-1">{{ catalog.products.length }}</span>
               </div>
-              <div class="stat-title">商品分类</div>
-              <div class="stat-value text-primary">{{ catalog.categories.length }}</div>
-            </div> -->
-            <div class="stat">
-              <div class="stat-title text-center">在售商品</div>
-              <div class="flex text-secondary">
-                <div class="stat-value mr-2 text-secondary">{{ catalog.products.length }}</div>
-                <div class="stat-figure flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="size-8" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                  </svg>
-                </div>
+              <div class="flex items-center justify-center size-12 rounded-xl bg-secondary/15 text-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                </svg>
               </div>
             </div>
           </div>
@@ -48,15 +40,18 @@
       </div>
     </section>
 
-    <section class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-semibold">商品列表</h2>
+    <!-- 商品列表 -->
+    <section class="space-y-5">
+      <div class="flex items-center gap-3">
+        <h2 class="text-xl font-bold text-base-content">商品列表</h2>
+        <span v-if="filteredProducts.length" class="text-xs text-base-content/40 font-medium">共 {{ filteredProducts.length }} 件</span>
       </div>
 
-      <div v-if="catalog.categories.length" class="flex flex-wrap gap-2 mb-6">
+      <!-- 分类筛选 -->
+      <div v-if="catalog.categories.length" class="flex flex-wrap gap-2">
         <button
-          class="btn btn-sm"
-          :class="activeCategoryId === null ? 'btn-primary' : 'btn-outline'"
+          class="btn btn-sm rounded-full px-4 transition-all duration-200"
+          :class="activeCategoryId === null ? 'btn-primary shadow-sm shadow-primary/20' : 'btn-ghost border border-base-300 hover:border-primary/40 hover:text-primary'"
           @click="activeCategoryId = null"
         >
           全部商品
@@ -64,76 +59,84 @@
         <button
           v-for="category in catalog.categories"
           :key="category.id"
-          class="btn btn-sm"
-          :class="activeCategoryId === category.id ? 'btn-primary' : 'btn-outline'"
+          class="btn btn-sm rounded-full px-4 transition-all duration-200"
+          :class="activeCategoryId === category.id ? 'btn-primary shadow-sm shadow-primary/20' : 'btn-ghost border border-base-300 hover:border-primary/40 hover:text-primary'"
           @click="activeCategoryId = category.id"
         >
           {{ category.name }}
         </button>
       </div>
 
-      <div v-if="filteredProducts.length" class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <article v-for="product in filteredProducts" :key="product.id" class="card bg-base-100 shadow-sm hover:shadow-md transition-all duration-300 group rounded-xl overflow-hidden border border-base-200 cursor-pointer" @click="navigateToProduct(product.slug)">
-
+      <!-- 商品网格 -->
+      <div v-if="filteredProducts.length" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <article
+          v-for="product in filteredProducts"
+          :key="product.id"
+          class="card bg-base-100 rounded-xl overflow-hidden border border-base-300/50 shadow-sm cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-base-content/8 group"
+          @click="navigateToProduct(product.slug)"
+        >
           <!-- 商品图片 -->
-          <figure class="relative pt-[100%] overflow-hidden">
+          <figure class="relative aspect-square overflow-hidden bg-base-200">
             <img
               :src="product.coverImage || emptyCoverUrl"
               :alt="product.name"
-              class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
             />
             <!-- 分类标签 -->
-            <div class="absolute top-2.5 left-2.5">
-              <span class="badge badge-primary badge-sm font-semibold rounded">
+            <div class="absolute top-3 left-3">
+              <span class="badge badge-sm font-medium rounded-md bg-base-100/85 backdrop-blur-sm border-0 text-base-content shadow-sm">
                 {{ product.categoryName || '默认' }}
               </span>
             </div>
           </figure>
 
           <!-- 商品信息 -->
-          <div class="card-body p-3">
-            <!-- 库存状态标签 + 商品名称 -->
-            <div class="flex items-start gap-1.5">
+          <div class="card-body p-4 gap-2.5">
+            <!-- 商品名称 -->
+            <h3 class="text-sm font-semibold line-clamp-2 text-base-content leading-snug">
+              {{ product.name }}
+            </h3>
+
+            <!-- 底部：状态 + 价格 -->
+            <div class="flex items-end justify-between mt-auto">
               <span
                 v-if="product.deliveryType === 'CARD_AUTO'"
-                class="text-xs font-medium px-1.5 py-0.5 rounded shrink-0 mt-0.5"
+                class="text-xs font-semibold px-2 py-0.5 rounded"
                 :class="{
                   'bg-amber-500/10 text-amber-600': lowStock(product),
                   'bg-emerald-500/10 text-emerald-600': !lowStock(product) && product.availableStock > 0,
-                  'bg-red-500/10 text-red-600': product.availableStock === 0
+                  'bg-red-50 text-red-500': product.availableStock === 0
                 }"
               >
                 {{ product.availableStock === 0 ? '已售罄' : lowStock(product) ? `紧张(${product.availableStock})` : '有货' }}
               </span>
               <span
                 v-else-if="product.deliveryType === 'FIXED_CARD'"
-                class="text-xs font-medium px-1.5 py-0.5 rounded shrink-0 mt-0.5 bg-emerald-500/10 text-emerald-600"
+                class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600"
               >
                 有货
               </span>
               <span
                 v-else-if="product.deliveryType === 'MANUAL'"
-                class="text-xs font-medium px-1.5 py-0.5 rounded shrink-0 mt-0.5 bg-sky-500/10 text-sky-600"
+                class="text-xs font-semibold px-2 py-0.5 rounded bg-sky-500/10 text-sky-600"
               >
                 人工发货
               </span>
-              <h3 class="card-title text-sm font-semibold line-clamp-2 text-base-content flex-1 min-w-0">
-                {{ product.name }}
-              </h3>
-            </div>
-
-            <!-- 价格 -->
-            <div class="flex items-baseline gap-0.5 mt-2">
-              <span class="text-xs font-bold text-red-500">¥</span>
-              <span class="text-xl font-bold text-red-500 leading-none">{{ formatCents(product.price) }}</span>
+              <div class="flex items-baseline gap-0.5">
+                <span class="text-[11px] font-bold text-red-500/60">¥</span>
+                <span class="text-xl font-bold text-red-500 leading-none">{{ formatCents(product.price) }}</span>
+              </div>
             </div>
           </div>
-
         </article>
       </div>
 
-      <div v-else class="rounded-box border border-dashed border-base-300 bg-base-100 p-8 text-center text-base-content/60">
-        当前还没有上架商品，请先在后台录入分类、商品和库存。
+      <div v-else class="rounded-2xl border border-dashed border-base-300 bg-base-100/50 p-12 text-center text-base-content/40">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-10 mx-auto mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+        </svg>
+        <p class="text-sm">当前还没有上架商品</p>
+        <p class="text-xs mt-1 opacity-60">请先在后台录入分类、商品和库存</p>
       </div>
     </section>
   </div>
@@ -170,11 +173,12 @@ const navigateToProduct = (slug: string) => {
 
 <style>
 .hero-img {
-  width: 230px;
+  width: 200px;
   height: auto;
   position: absolute;
-  top: -35px;
-  right: -22px;
+  top: -28px;
+  right: 12px;
   z-index: 2;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.08));
 }
 </style>
