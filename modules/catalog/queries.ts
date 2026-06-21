@@ -26,10 +26,61 @@ export async function listHomeProducts(prisma: PrismaClient): Promise<ProductSum
       },
     },
     orderBy: [{ sort: "asc" }, { id: "desc" }],
-    take: 12,
   });
 
-  return records.map((item) => ({
+  return records.map((item) => mapProductSummary(item));
+}
+
+export async function listHomeProductsPaged(
+  prisma: PrismaClient,
+  params: { skip?: number; take?: number; categoryId?: number | null },
+): Promise<{ items: ProductSummary[]; total: number }> {
+  const { skip = 0, take = 16, categoryId } = params;
+
+  const where = {
+    status: "ACTIVE" as const,
+    ...(categoryId ? { categoryId } : {}),
+  };
+
+  const [records, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        _count: {
+          select: {
+            cards: {
+              where: { status: "UNUSED" },
+            },
+          },
+        },
+      },
+      orderBy: [{ sort: "asc" }, { id: "desc" }],
+      skip,
+      take,
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  return {
+    items: records.map((item) => mapProductSummary(item)),
+    total,
+  };
+}
+
+function mapProductSummary(item: {
+  id: number;
+  categoryId: number | null;
+  category: { name: string } | null;
+  name: string;
+  slug: string;
+  coverImage: string | null;
+  price: number;
+  deliveryType: string;
+  stockMode: string;
+  _count: { cards: number };
+}): ProductSummary {
+  return {
     id: item.id,
     categoryId: item.categoryId,
     categoryName: item.category?.name ?? null,
@@ -40,7 +91,7 @@ export async function listHomeProducts(prisma: PrismaClient): Promise<ProductSum
     deliveryType: item.deliveryType as ProductDeliveryTypeValue,
     stockMode: item.stockMode as "FINITE" | "UNLIMITED",
     availableStock: getAvailableStock(item),
-  }));
+  };
 }
 
 export async function listHomeCategories(prisma: PrismaClient): Promise<CategorySummary[]> {
