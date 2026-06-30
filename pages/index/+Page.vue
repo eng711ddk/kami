@@ -27,7 +27,7 @@
             <div class="flex items-center gap-3 rounded-xl bg-gradient-to-br from-secondary/10 to-base-200 px-6 py-4 shadow-sm">
               <div class="flex flex-col items-end">
                 <span class="text-xs text-base-content/50 font-medium">在售商品</span>
-                <span class="text-3xl font-bold text-secondary leading-none mt-1">{{ catalog.products.length }}</span>
+                <span class="text-3xl font-bold text-secondary leading-none mt-1">{{ catalog.total }}</span>
               </div>
               <div class="flex items-center justify-center size-12 rounded-xl bg-secondary/15 text-secondary">
                 <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -138,28 +138,49 @@
         <p class="text-sm">当前还没有上架商品</p>
         <p class="text-xs mt-1 opacity-60">请先在后台录入分类、商品和库存</p>
       </div>
+
+      <!-- 加载更多触发器和状态 -->
+      <div v-if="filteredProducts.length > 0" ref="sentinelRef" class="py-8 text-center">
+        <div v-if="loading" class="flex items-center justify-center gap-2 text-base-content/60">
+          <span class="loading loading-spinner loading-sm"></span>
+          <span>加载中...</span>
+        </div>
+        <div v-else-if="!hasMore" class="text-base-content/40 text-sm">
+          已加载全部商品
+        </div>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch, useTemplateRef } from "vue";
 import { useData } from "vike-vue/useData";
 import { navigate } from "vike/client/router";
 import { formatCents } from "../../lib/utils/money";
 import emptyCoverUrl from "../../assets/empty.jpg";
+import { onLoadMoreProducts } from "./loadMoreProducts.telefunc";
 import type { Data } from "./+data";
 import type { ProductSummary } from "../../modules/catalog/types";
 
 const { site, catalog } = useData<Data>();
 const activeCategoryId = ref<number | null>(null);
+const products = ref<ProductSummary[]>([...catalog.products]);
+const total = ref(catalog.total);
+const loading = ref(false);
+const sentinelRef = useTemplateRef<HTMLElement>("sentinelRef");
+let observer: IntersectionObserver | null = null;
+
 const filteredProducts = computed(() => {
   if (activeCategoryId.value === null) {
-    return catalog.products;
+    return products.value;
   }
 
-  return catalog.products.filter((product) => product.categoryId === activeCategoryId.value);
+  return products.value.filter((product) => product.categoryId === activeCategoryId.value);
 });
+
+const hasMore = computed(() => products.value.length < total.value);
+
 // 库存紧张
 const lowStock = (product: ProductSummary) => {
   return product.availableStock >= 0 && product.availableStock < 10
@@ -169,6 +190,73 @@ const lowStock = (product: ProductSummary) => {
 const navigateToProduct = (slug: string) => {
   navigate(`/product/${slug}`);
 }
+
+// 加载更多商品
+async function loadMore() {
+  if (loading.value || !hasMore.value) return;
+
+  loading.value = true;
+  try {
+    const result = await onLoadMoreProducts({
+      skip: products.value.length,
+      take: 16,
+      categoryId: activeCategoryId.value,
+    });
+    products.value.push(...result.items);
+    total.value = result.total;
+  } catch (error) {
+    console.error("加载商品失败:", error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 切换分类时重置列表
+watch(activeCategoryId, async (newCategoryId) => {
+  loading.value = true;
+  try {
+    const result = await onLoadMoreProducts({
+      skip: 0,
+      take: 16,
+      categoryId: newCategoryId,
+    });
+    products.value = result.items;
+    total.value = result.total;
+  } catch (error) {
+    console.error("加载商品失败:", error);
+  } finally {
+    loading.value = false;
+  }
+});
+
+// 设置 Intersection Observer
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting && hasMore.value && !loading.value) {
+        loadMore();
+      }
+    },
+    { threshold: 0.1 },
+  );
+
+  // 初始观察
+  if (sentinelRef.value) {
+    observer.observe(sentinelRef.value);
+  }
+});
+
+// 监听 sentinelRef 变化，确保 observer 能正确观察
+watch(sentinelRef, (newEl, oldEl) => {
+  if (observer) {
+    if (oldEl) observer.unobserve(oldEl);
+    if (newEl) observer.observe(newEl);
+  }
+});
+
+onUnmounted(() => {
+  observer?.disconnect();
+});
 </script>
 
 <style>
