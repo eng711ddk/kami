@@ -26,5 +26,9 @@
   ],
   "triggers": {
     "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "AUTH_SECRET": "edgekey-auth-secret-2024-this-is-a-long-random-string-for-security",
+    "AUTH_TRUST_HOST": "true"
   }
 }
