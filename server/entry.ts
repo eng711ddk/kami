@@ -8,6 +8,9 @@ import { createRequestContext, runWithRequestContext } from "../lib/request-cont
 import { apply, serve } from "@photonjs/hono";
 import { Hono } from "hono";
 
+// ===== 添加这一行 =====
+import debugApp from "./debug";
+
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 /**
@@ -58,6 +61,11 @@ export function createApp() {
   });
 
   registerApiRoutes(apiApp);
+
+  // ===== 添加这一行：注册 debug 路由 =====
+  // 注意：要在 registerApiRoutes 之后，但在 app.route 之前或之后都可以
+  // 因为 debugApp 也是 /api 下的路由
+  apiApp.route('/debug', debugApp);
 
   // 先挂载 API 子应用，再挂页面/通用处理链，避免 `/api/*` 被页面兜底吞掉。
   app.route("/", apiApp);
