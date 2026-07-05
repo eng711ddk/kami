@@ -1,6 +1,6 @@
 {
   "version": "1.4.7",
-    "scripts": {
+  "scripts": {
     "dev": "vike dev",
     "build": "bun run db:generate && vike build",
     "preview": "vike build && vike preview",
@@ -13,8 +13,8 @@
     "db:seed:remote": "wrangler d1 execute DB --remote --file=./scripts/seed.sql -y",
     "verify:payments": "bun run scripts/verify-payment-adapters.ts",
     "verify:payment-notify": "bun run scripts/verify-payment-notify.ts",
-    "deploy": "bun run db:migrations:remote && bun run db:seed:remote && wrangler deploy",
-    "up": "bun run db:migrations:remote && vike build && wrangler deploy",
+    "deploy": "wrangler deploy",
+    "up": "wrangler deploy",
     "types": "wrangler types"
   },
   "dependencies": {
